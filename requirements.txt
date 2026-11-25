@@ -1,6 +1,22 @@
-fastapi>=0.115.0,<1.0.0
-uvicorn>=0.32.0,<1.0.0
-streamlit>=1.40.0,<2.0.0
-httpx>=0.27.0,<1.0.0
-httpx2>=2.0.0,<3.0.0
+
+# Core application
+fastapi==0.165.0
+uvicorn==0.54.0
+streamlit==1.67.0
+httpx==0.28.1
+httpx2==2.16.2
+
+# AI agent and workflow
+langgraph==1.2.24
+langchain-core==1.8.4
+langchain-google-genai==4.5.2
+
+# MCP integration
+langchain-mcp-adapters==0.3.2
+mcp==1.30.0
+
+# Configuration
+python-dotenv==1.2.4
+
+# Testing
 pytest>=8.3.0,<9.0.0

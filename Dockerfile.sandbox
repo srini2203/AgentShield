@@ -1,0 +1,10 @@
+﻿FROM python:3.13-slim
+
+RUN useradd --create-home --uid 10001 sandbox
+WORKDIR /app
+
+COPY sandbox/remediate.py /app/remediate.py
+
+USER 10001:10001
+
+ENTRYPOINT ["python", "/app/remediate.py"]
