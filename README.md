@@ -307,6 +307,8 @@ The single successful OFF-mode case involved an attacker-requested shell action 
 
 **Observed result:** Attack success decreased from 1/30 with defenses disabled to 0/30 with defenses enabled.
 
+The model resisted 29 of 30 payloads even with prompt defences off, so the OFF-vs-ON difference is small and not statistically meaningful. The allowlist, validation, and approval layers were not exercised by this test (no tools were bound).
+
 These results are limited to the tested payloads and Gemini model configuration. They do not establish universal prompt-injection immunity or prove resistance to every attack.
 
 ### 2. Root-Cause Accuracy Evaluation
@@ -338,18 +340,6 @@ Execution completion was 96% (24/25). The provider failure is reported separatel
 | Approval replay prevention | Verified |
 | Rejected approval enforcement | Verified |
 | Streamlit dashboard | Five tabs available |
-
-### 4. Observed Investigation Metrics
-
-From two successful live investigation runs:
-
-- Success rate: 100%
-- Average investigation duration: approximately 8.75 seconds
-- Total input tokens: 7,994
-- Total output tokens: 449
-- Total tokens: 8,443
-
-These are results from two local runs, not a statistically representative benchmark.
 
 ## Architecture Decision Records
 
@@ -391,7 +381,7 @@ Current limitations:
 
 **Srinivasan V**
 
-AI-Native Cloud Engineer | AWS | DevOps | AI Agent Security
+Cloud & DevOps Engineer | AI Agents & LLMOps | AWS
 
 GitHub: https://github.com/srini2203
 
