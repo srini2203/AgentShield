@@ -10,7 +10,7 @@ It uses a security-first architecture to prevent untrusted log content from beco
 
 ---
 
-## Public Evaluation Replay\n\n**[Open the AgentShield evaluation replay dashboard](https://srini2203.github.io/AgentShield/)** — static, read-only replay of recorded security and root-cause evaluation runs. It does not expose or call the unauthenticated FastAPI backend.\n\nThe dashboard reports the recorded root-cause evaluation as 24/25 completed, with 24/24 completed diagnoses manually matching the expected cause; one Gemini API 503 remains pending retry. The paired security evaluation reports 1/30 attack successes with defenses OFF and 0/30 with defenses ON. These are test-set observations, not a guarantee of prompt-injection immunity.\n\n## Project Overview
+## Public Evaluation Replay\n\n**[AgentShield evaluation replay dashboard](https://srini2203.github.io/AgentShield/)** — static, read-only replay of recorded security and root-cause evaluation runs. First-time GitHub Pages activation is pending; the site is not live yet. It does not expose or call the unauthenticated FastAPI backend.\n\nThe dashboard reports the recorded root-cause evaluation as 24/25 completed, with 24/24 completed diagnoses manually matching the expected cause; one Gemini API 503 remains pending retry. The paired security evaluation reports 1/30 attack successes with defenses OFF and 0/30 with defenses ON. These are test-set observations, not a guarantee of prompt-injection immunity.\n\n## Project Overview
 
 Traditional incident-response automation can be dangerous when an AI agent has unrestricted access to application tools and remediation commands.
 
