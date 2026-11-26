@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 load_dotenv()
 
+MODEL_NAME = "gemini-3.5-flash-lite"
+
 # Only these four diagnostic tools are authorized.
 ALLOWED_TOOLS = {
     "get_application_logs",
@@ -52,6 +54,7 @@ class InvestigationState(TypedDict, total=False):
     db_path: str
     diagnostics: dict[str, Any]
     diagnosis: dict[str, Any]
+    token_usage: dict[str, int] | None
 
 
 def get_model():
@@ -65,7 +68,7 @@ def get_model():
         )
 
     return ChatGoogleGenerativeAI(
-        model="gemini-3.5-flash-lite",
+        model=MODEL_NAME,
         temperature=0,
         google_api_key=api_key,
         timeout=15,
@@ -141,7 +144,6 @@ def _sanitize_evidence(value: Any, depth: int = 0) -> Any:
         )
 
     if isinstance(value, str):
-        # Remove control characters and invisible formatting characters.
         value = re.sub(
             r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"
             r"\u200b-\u200f\u202a-\u202e\ufeff]",
@@ -245,6 +247,72 @@ def _validate_diagnostics(
     return safe_diagnostics
 
 
+
+def _extract_token_usage(response: Any) -> dict[str, int] | None:
+    """Extract token counts from dictionary or LangChain message metadata."""
+
+    if isinstance(response, Mapping):
+        metadata = response.get("usage_metadata")
+        response_metadata = response.get("response_metadata")
+    else:
+        metadata = getattr(response, "usage_metadata", None)
+        response_metadata = getattr(response, "response_metadata", None)
+
+    if isinstance(response_metadata, Mapping):
+        if metadata is None:
+            metadata = response_metadata.get("usage_metadata")
+
+        token_usage = response_metadata.get("token_usage")
+
+        if metadata is None and isinstance(token_usage, Mapping):
+            metadata = token_usage
+
+    if not isinstance(metadata, Mapping):
+        return None
+
+    aliases = {
+        "input_tokens": (
+            "input_tokens",
+            "prompt_token_count",
+            "promptTokenCount",
+        ),
+        "output_tokens": (
+            "output_tokens",
+            "candidates_token_count",
+            "candidatesTokenCount",
+        ),
+        "total_tokens": (
+            "total_tokens",
+            "total_token_count",
+            "totalTokenCount",
+        ),
+    }
+
+    usage = {}
+
+    for target, candidates in aliases.items():
+        for candidate in candidates:
+            value = metadata.get(candidate)
+
+            if (
+                isinstance(value, int)
+                and not isinstance(value, bool)
+                and value >= 0
+            ):
+                usage[target] = value
+                break
+
+    if (
+        "total_tokens" not in usage
+        and "input_tokens" in usage
+        and "output_tokens" in usage
+    ):
+        usage["total_tokens"] = (
+            usage["input_tokens"] + usage["output_tokens"]
+        )
+
+    return usage or None
+
 async def collect_diagnostics(
     db_path: str | None = None,
 ) -> dict[str, Any]:
@@ -339,9 +407,10 @@ async def analyze_evidence(
 
     model = get_model()
 
-    # Structured output only. No MCP tools are bound to Gemini.
+    # include_raw preserves provider usage metadata when available.
     structured_model = model.with_structured_output(
-        IncidentDiagnosis
+        IncidentDiagnosis,
+        include_raw=True,
     )
 
     system_prompt = """
@@ -386,11 +455,26 @@ Return a structured diagnosis matching the required schema.
         ]
     )
 
-    # Validate the returned object again at the application boundary.
-    diagnosis = IncidentDiagnosis.model_validate(response)
+    if isinstance(response, Mapping) and "parsed" in response:
+        parsed = response.get("parsed")
+
+        if parsed is None:
+            raise ValueError(
+                "Gemini did not return a valid structured diagnosis."
+            )
+
+        raw_response = response.get("raw")
+        token_usage = _extract_token_usage(raw_response)
+
+    else:
+        parsed = response
+        token_usage = _extract_token_usage(response)
+
+    diagnosis = IncidentDiagnosis.model_validate(parsed)
 
     return {
-        "diagnosis": diagnosis.model_dump(mode="json")
+        "diagnosis": diagnosis.model_dump(mode="json"),
+        "token_usage": token_usage,
     }
 
 
@@ -451,4 +535,8 @@ async def investigate_incident(
     return {
         "diagnostics": result["diagnostics"],
         "diagnosis": result["diagnosis"],
+        "_observability": {
+            "model": MODEL_NAME,
+            "token_usage": result.get("token_usage"),
+        },
     }

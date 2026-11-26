@@ -2,6 +2,7 @@
 """FastAPI application and endpoint registration for AgentShield."""
 
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -38,12 +39,20 @@ from app.models import (
     ResetResponse,
     ScenarioName,
 )
+from app.observability import (
+    get_investigation_metrics,
+    init_investigation_metrics,
+    record_investigation,
+)
 from app.remediation import execute_remediation
 from app.scenarios import (
     activate_scenario,
     execute_demo_request,
     reset_all_scenarios,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ApprovalRequest(BaseModel):
@@ -65,14 +74,20 @@ def _get_db_path(request: Request) -> Path:
 
 def create_app(db_path: Optional[Path | str] = None) -> FastAPI:
     """Create and configure the AgentShield FastAPI application."""
+
     configure_logging()
+
     initialized_db = init_db(db_path)
     init_approvals(initialized_db)
+    init_investigation_metrics(initialized_db)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         application.state.db_path = init_db(db_path)
+
         init_approvals(application.state.db_path)
+        init_investigation_metrics(application.state.db_path)
+
         yield
 
     application = FastAPI(
@@ -84,6 +99,7 @@ def create_app(db_path: Optional[Path | str] = None) -> FastAPI:
         version=APP_VERSION,
         lifespan=lifespan,
     )
+
     application.state.db_path = initialized_db
 
     @application.get(
@@ -147,6 +163,15 @@ def create_app(db_path: Optional[Path | str] = None) -> FastAPI:
     ) -> DeploymentsResponse:
         return get_deployments(_get_db_path(request), limit=limit)
 
+    @application.get(
+        "/api/investigations/metrics",
+        tags=["AI Investigation"],
+    )
+    def api_investigation_metrics(request: Request) -> dict:
+        return get_investigation_metrics(
+            _get_db_path(request)
+        )
+
     @application.get("/api/demo/request", tags=["Demo"])
     async def api_demo_request(request: Request) -> JSONResponse:
         status_code, payload = await execute_demo_request(
@@ -185,14 +210,65 @@ def create_app(db_path: Optional[Path | str] = None) -> FastAPI:
         tags=["AI Investigation"],
     )
     async def api_investigate(request: Request) -> dict:
+        started_at = time.perf_counter()
+        db_path = _get_db_path(request)
+
         try:
-            return await investigate_incident(
-                db_path=str(_get_db_path(request))
+            result = await investigate_incident(
+                db_path=str(db_path)
             )
+
+            duration_ms = (
+                time.perf_counter() - started_at
+            ) * 1000
+
+            internal_metrics = result.pop(
+                "_observability",
+                {},
+            )
+
+            token_usage = internal_metrics.get(
+                "token_usage"
+            ) or {}
+
+            try:
+                record_investigation(
+                    db_path,
+                    status="success",
+                    duration_ms=duration_ms,
+                    model=internal_metrics.get("model"),
+                    input_tokens=token_usage.get("input_tokens"),
+                    output_tokens=token_usage.get("output_tokens"),
+                    total_tokens=token_usage.get("total_tokens"),
+                )
+            except Exception:
+                logger.exception(
+                    "Could not persist investigation metrics"
+                )
+
+            return result
+
         except Exception as exc:
-            logging.getLogger(__name__).exception(
+            duration_ms = (
+                time.perf_counter() - started_at
+            ) * 1000
+
+            try:
+                record_investigation(
+                    db_path,
+                    status="failure",
+                    duration_ms=duration_ms,
+                    error_type=type(exc).__name__,
+                )
+            except Exception:
+                logger.exception(
+                    "Could not persist failed investigation metrics"
+                )
+
+            logger.exception(
                 "AgentShield incident investigation failed"
             )
+
             raise HTTPException(
                 status_code=500,
                 detail=(
@@ -261,7 +337,7 @@ def create_app(db_path: Optional[Path | str] = None) -> FastAPI:
                 detail=str(exc),
             ) from exc
         except Exception as exc:
-            logging.getLogger(__name__).exception(
+            logger.exception(
                 "Remediation validation failed"
             )
             raise HTTPException(

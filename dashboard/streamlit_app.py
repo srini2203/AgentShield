@@ -11,6 +11,7 @@ from typing import Any, Optional
 import httpx
 import streamlit as st
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 if str(PROJECT_ROOT) not in sys.path:
@@ -18,7 +19,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.database import resolve_db_path
 
-from app.database import resolve_db_path
 
 DEFAULT_API_BASE_URL = os.environ.get(
     "AGENTSHIELD_API_URL",
@@ -34,7 +34,7 @@ SCENARIOS = [
 ]
 
 EVALUATION_FILE = (
-    Path(__file__).resolve().parent.parent
+    PROJECT_ROOT
     / "evaluation"
     / "results"
     / "security_eval_latest.json"
@@ -54,7 +54,10 @@ def _api_get(
             )
 
         if response.status_code >= 400:
-            return None, f"GET {path}: HTTP {response.status_code} - {response.text}"
+            return None, (
+                f"GET {path}: HTTP {response.status_code} - "
+                f"{response.text}"
+            )
 
         return response.json(), None
 
@@ -69,10 +72,15 @@ def _api_post(
 ):
     try:
         with httpx.Client(timeout=timeout) as client:
-            response = client.post(f"{base_url.rstrip('/')}{path}")
+            response = client.post(
+                f"{base_url.rstrip('/')}{path}"
+            )
 
         if response.status_code >= 400:
-            return None, f"POST {path}: HTTP {response.status_code} - {response.text}"
+            return None, (
+                f"POST {path}: HTTP {response.status_code} - "
+                f"{response.text}"
+            )
 
         return response.json(), None
 
@@ -162,7 +170,9 @@ def _read_security_evaluation():
         return None
 
     try:
-        return json.loads(EVALUATION_FILE.read_text(encoding="utf-8"))
+        return json.loads(
+            EVALUATION_FILE.read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError):
         return None
 
@@ -176,7 +186,9 @@ def _render_diagnosis(result: dict[str, Any]):
 
     st.subheader("AI Investigation Results")
 
-    severity = str(diagnosis.get("severity", "UNKNOWN")).upper()
+    severity = str(
+        diagnosis.get("severity", "UNKNOWN")
+    ).upper()
 
     if severity in {"HIGH", "CRITICAL"}:
         st.error(f"Severity: {severity}")
@@ -186,12 +198,23 @@ def _render_diagnosis(result: dict[str, Any]):
         st.success(f"Severity: {severity}")
 
     st.markdown("**Incident Summary**")
-    st.write(diagnosis.get("incident_summary", "Not available"))
+    st.write(
+        diagnosis.get(
+            "incident_summary",
+            "Not available",
+        )
+    )
 
     st.markdown("**Root Cause**")
-    st.write(diagnosis.get("root_cause", "Not available"))
+    st.write(
+        diagnosis.get(
+            "root_cause",
+            "Not available",
+        )
+    )
 
     st.markdown("**Supporting Evidence**")
+
     evidence = diagnosis.get("evidence", [])
 
     if evidence:
@@ -203,10 +226,18 @@ def _render_diagnosis(result: dict[str, Any]):
     confidence = diagnosis.get("confidence")
 
     if isinstance(confidence, (int, float)):
-        st.metric("Model-reported Confidence", f"{confidence:.0%}")
+        st.metric(
+            "Model-reported Confidence",
+            f"{confidence:.0%}",
+        )
 
     st.markdown("**Proposed Fix**")
-    st.info(diagnosis.get("proposed_fix", "No proposed fix available."))
+    st.info(
+        diagnosis.get(
+            "proposed_fix",
+            "No proposed fix available.",
+        )
+    )
 
     limitations = diagnosis.get("limitations", [])
 
@@ -233,14 +264,21 @@ def _render_overview(health_data, status_data):
     )
     cols[2].metric(
         "Deployment",
-        status_data.get("active_deployment_version", "Unknown"),
+        status_data.get(
+            "active_deployment_version",
+            "Unknown",
+        ),
     )
     cols[3].metric("Active Incidents", len(active))
 
     if active:
-        st.warning("Active incidents: " + ", ".join(active))
+        st.warning(
+            "Active incidents: " + ", ".join(active)
+        )
     else:
-        st.success("No active incidents. Application is in baseline state.")
+        st.success(
+            "No active incidents. Application is in baseline state."
+        )
 
 
 def _render_incident_controls(base_url):
@@ -264,17 +302,30 @@ def _render_incident_controls(base_url):
                 if error:
                     st.error(error)
                 else:
-                    st.success(response.get("message", "Scenario activated."))
+                    st.success(
+                        response.get(
+                            "message",
+                            "Scenario activated.",
+                        )
+                    )
 
                 st.rerun()
 
     if st.button("Reset All Scenarios", type="primary"):
-        response, error = _api_post(base_url, "/api/reset")
+        response, error = _api_post(
+            base_url,
+            "/api/reset",
+        )
 
         if error:
             st.error(error)
         else:
-            st.success(response.get("message", "Scenarios reset."))
+            st.success(
+                response.get(
+                    "message",
+                    "Scenarios reset.",
+                )
+            )
 
         st.rerun()
 
@@ -292,7 +343,9 @@ def _render_investigation(base_url):
         type="primary",
         use_container_width=True,
     ):
-        with st.spinner("Collecting diagnostics and analysing evidence..."):
+        with st.spinner(
+            "Collecting diagnostics and analysing evidence..."
+        ):
             result, error = _api_post(
                 base_url,
                 "/api/investigate",
@@ -300,17 +353,27 @@ def _render_investigation(base_url):
             )
 
         if error:
-            st.session_state.pop("investigation_result", None)
+            st.session_state.pop(
+                "investigation_result",
+                None,
+            )
             st.session_state["investigation_error"] = error
         else:
             st.session_state["investigation_result"] = result
-            st.session_state.pop("investigation_error", None)
+            st.session_state.pop(
+                "investigation_error",
+                None,
+            )
 
     if "investigation_error" in st.session_state:
-        st.error(st.session_state["investigation_error"])
+        st.error(
+            st.session_state["investigation_error"]
+        )
 
     if "investigation_result" in st.session_state:
-        _render_diagnosis(st.session_state["investigation_result"])
+        _render_diagnosis(
+            st.session_state["investigation_result"]
+        )
 
 
 def _render_security():
@@ -320,17 +383,28 @@ def _render_security():
 
     cols = st.columns(3)
 
-    cols[0].metric("Adversarial Payload Corpus", "30")
+    cols[0].metric(
+        "Adversarial Payload Corpus",
+        "30",
+    )
 
     if report:
-        total = report.get("total_cases", 0)
         completed = report.get("completed_cases", 0)
         failed = report.get("failed_cases", 0)
 
-        cols[1].metric("Completed Model Calls", completed)
-        cols[2].metric("Failed Model Calls", failed)
+        cols[1].metric(
+            "Completed Model Calls",
+            completed,
+        )
+        cols[2].metric(
+            "Failed Model Calls",
+            failed,
+        )
 
-        st.caption(f"Latest report timestamp: {report.get('timestamp', 'Unknown')}")
+        st.caption(
+            f"Latest report timestamp: "
+            f"{report.get('timestamp', 'Unknown')}"
+        )
 
         st.info(
             "Attack success rate has not been established. "
@@ -351,14 +425,24 @@ def _render_security():
                     "Duration (s)": item.get("duration_seconds"),
                 })
 
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(
+                rows,
+                use_container_width=True,
+                hide_index=True,
+            )
 
             with st.expander("View saved evaluation report"):
                 st.json(report)
 
     else:
-        cols[1].metric("Completed Model Calls", "N/A")
-        cols[2].metric("Attack Success Rate", "Not measured")
+        cols[1].metric(
+            "Completed Model Calls",
+            "N/A",
+        )
+        cols[2].metric(
+            "Attack Success Rate",
+            "Not measured",
+        )
 
         st.info(
             "No saved security evaluation report found. "
@@ -382,13 +466,20 @@ def _render_approvals(observability):
     cols = st.columns(4)
 
     for col, (label, key) in zip(cols, statuses):
-        col.metric(label, stats.get(key, 0))
+        col.metric(
+            label,
+            stats.get(key, 0),
+        )
 
     history = observability["approval_history"]
 
     if history:
         st.markdown("**Recent Approval Records**")
-        st.dataframe(history, use_container_width=True, hide_index=True)
+        st.dataframe(
+            history,
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("No approval records yet.")
 
@@ -401,7 +492,10 @@ def _render_approvals(observability):
 def _render_request_metrics(base_url):
     st.subheader("Application Request Metrics")
 
-    metrics, error = _api_get(base_url, "/api/metrics")
+    metrics, error = _api_get(
+        base_url,
+        "/api/metrics",
+    )
 
     if error:
         st.error(error)
@@ -409,11 +503,26 @@ def _render_request_metrics(base_url):
 
     cols = st.columns(5)
 
-    cols[0].metric("Demo Requests", metrics["total_requests"])
-    cols[1].metric("Successful", metrics["successful_requests"])
-    cols[2].metric("Failed", metrics["failed_requests"])
-    cols[3].metric("Average Latency", f"{metrics['average_duration_ms']:.1f} ms")
-    cols[4].metric("HTTP 500", metrics["http_500_count"])
+    cols[0].metric(
+        "Demo Requests",
+        metrics["total_requests"],
+    )
+    cols[1].metric(
+        "Successful",
+        metrics["successful_requests"],
+    )
+    cols[2].metric(
+        "Failed",
+        metrics["failed_requests"],
+    )
+    cols[3].metric(
+        "Average Latency",
+        f"{metrics['average_duration_ms']:.1f} ms",
+    )
+    cols[4].metric(
+        "HTTP 500",
+        metrics["http_500_count"],
+    )
 
     st.caption(
         "These metrics describe GET /api/demo/request, "
@@ -421,10 +530,132 @@ def _render_request_metrics(base_url):
     )
 
 
+def _render_investigation_metrics(base_url):
+    st.subheader("AI Investigation Observability")
+
+    metrics, error = _api_get(
+        base_url,
+        "/api/investigations/metrics",
+    )
+
+    if error:
+        st.error(error)
+        return
+
+    total = metrics["total_investigations"]
+    successful = metrics["successful_investigations"]
+    failed = metrics["failed_investigations"]
+
+    success_rate = metrics["success_rate"]
+    average = metrics["average_duration_ms"]
+    p95 = metrics["p95_duration_ms"]
+
+    cols = st.columns(5)
+
+    cols[0].metric(
+        "Investigations",
+        total,
+    )
+    cols[1].metric(
+        "Successful",
+        successful,
+    )
+    cols[2].metric(
+        "Failed",
+        failed,
+    )
+    cols[3].metric(
+        "Success Rate",
+        (
+            f"{success_rate:.1%}"
+            if success_rate is not None
+            else "N/A"
+        ),
+    )
+    cols[4].metric(
+        "Average Latency",
+        (
+            f"{average:.1f} ms"
+            if average is not None
+            else "N/A"
+        ),
+    )
+
+    st.metric(
+        "95th Percentile Latency",
+        (
+            f"{p95:.1f} ms"
+            if p95 is not None
+            else "N/A"
+        ),
+    )
+
+    st.markdown("**Gemini Token Usage**")
+
+    if metrics["token_usage_records"]:
+        token_cols = st.columns(3)
+
+        token_cols[0].metric(
+            "Input Tokens",
+            (
+                metrics["total_input_tokens"]
+                if metrics["total_input_tokens"] is not None
+                else "N/A"
+            ),
+        )
+
+        token_cols[1].metric(
+            "Output Tokens",
+            (
+                metrics["total_output_tokens"]
+                if metrics["total_output_tokens"] is not None
+                else "N/A"
+            ),
+        )
+
+        token_cols[2].metric(
+            "Total Tokens",
+            (
+                metrics["total_tokens"]
+                if metrics["total_tokens"] is not None
+                else "N/A"
+            ),
+        )
+
+        st.caption(
+            f"Token usage was available for "
+            f"{metrics['token_usage_records']} investigation(s)."
+        )
+    else:
+        st.info(
+            "Gemini token usage is not available in recorded responses yet."
+        )
+
+    history = metrics["recent_investigations"]
+
+    if history:
+        st.markdown("**Recent AI Investigations**")
+
+        st.dataframe(
+            history,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.caption(
+        "Latency covers the complete investigation request, "
+        "including diagnostic collection and model analysis. "
+        "Token usage is recorded only when returned by the model provider."
+    )
+
+
 def _render_database_health(base_url):
     st.subheader("Database Health")
 
-    data, error = _api_get(base_url, "/api/database/health")
+    data, error = _api_get(
+        base_url,
+        "/api/database/health",
+    )
 
     if error:
         st.error(error)
@@ -432,14 +663,26 @@ def _render_database_health(base_url):
 
     cols = st.columns(3)
 
-    cols[0].metric("SQLite", data["sqlite_status"])
+    cols[0].metric(
+        "SQLite",
+        data["sqlite_status"],
+    )
     cols[1].metric(
         "Simulated Failure",
-        "ACTIVE" if data["simulated_failure_active"] else "Inactive",
+        (
+            "ACTIVE"
+            if data["simulated_failure_active"]
+            else "Inactive"
+        ),
     )
-    cols[2].metric("Integrity Check", data["integrity_check"])
+    cols[2].metric(
+        "Integrity Check",
+        data["integrity_check"],
+    )
 
-    st.caption(f"Database path: `{data['database_path']}`")
+    st.caption(
+        f"Database path: `{data['database_path']}`"
+    )
 
 
 def _render_logs_and_deployments(base_url):
@@ -454,13 +697,20 @@ def _render_logs_and_deployments(base_url):
     if error:
         st.error(error)
     elif logs and logs.get("logs"):
-        st.dataframe(logs["logs"], use_container_width=True, hide_index=True)
+        st.dataframe(
+            logs["logs"],
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("No log entries recorded.")
 
     st.subheader("Deployment History")
 
-    deployments, error = _api_get(base_url, "/api/deployments")
+    deployments, error = _api_get(
+        base_url,
+        "/api/deployments",
+    )
 
     if error:
         st.error(error)
@@ -480,7 +730,11 @@ def _render_incident_timeline(observability):
     history = observability["incident_history"]
 
     if history:
-        st.dataframe(history, use_container_width=True, hide_index=True)
+        st.dataframe(
+            history,
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("No incident history recorded yet.")
 
@@ -493,6 +747,7 @@ def main():
     )
 
     st.title("🛡️ AgentShield")
+
     st.caption(
         "SECURITY OPERATIONS CENTER | Secure AI incident investigation "
         "| Human-approved remediation"
@@ -506,13 +761,19 @@ def main():
             value=DEFAULT_API_BASE_URL,
         )
 
-        if st.button("Refresh Dashboard", use_container_width=True):
+        if st.button(
+            "Refresh Dashboard",
+            use_container_width=True,
+        ):
             st.rerun()
 
         st.divider()
         st.subheader("Demo Endpoint")
 
-        if st.button("Send Demo Request", use_container_width=True):
+        if st.button(
+            "Send Demo Request",
+            use_container_width=True,
+        ):
             try:
                 with httpx.Client(timeout=10.0) as client:
                     response = client.get(
@@ -523,7 +784,11 @@ def main():
                     "status_code": response.status_code,
                     "body": response.json(),
                 }
-                st.session_state.pop("last_demo_error", None)
+
+                st.session_state.pop(
+                    "last_demo_error",
+                    None,
+                )
 
             except (httpx.HTTPError, ValueError) as exc:
                 st.session_state["last_demo_error"] = str(exc)
@@ -531,15 +796,28 @@ def main():
             st.rerun()
 
         if "last_demo_error" in st.session_state:
-            st.error(st.session_state["last_demo_error"])
+            st.error(
+                st.session_state["last_demo_error"]
+            )
 
         if "last_demo_result" in st.session_state:
             result = st.session_state["last_demo_result"]
-            st.write(f"Last HTTP Status: **{result['status_code']}**")
+
+            st.write(
+                f"Last HTTP Status: **{result['status_code']}**"
+            )
+
             st.json(result["body"])
 
-    health, health_error = _api_get(base_url, "/health")
-    status, status_error = _api_get(base_url, "/api/status")
+    health, health_error = _api_get(
+        base_url,
+        "/health",
+    )
+
+    status, status_error = _api_get(
+        base_url,
+        "/api/status",
+    )
 
     if health_error or status_error:
         st.error("FastAPI connection unavailable.")
@@ -550,12 +828,16 @@ def main():
         if status_error:
             st.error(status_error)
 
-        st.info("Start the backend with `python run.py`.")
+        st.info(
+            "Start the backend with `python run.py`."
+        )
         return
 
     _render_overview(health, status)
 
-    observability, observability_error = _read_local_observability()
+    observability, observability_error = (
+        _read_local_observability()
+    )
 
     if observability_error:
         st.warning(observability_error)
@@ -570,9 +852,13 @@ def main():
 
     with tabs[0]:
         _render_incident_controls(base_url)
+
         st.divider()
+
         _render_request_metrics(base_url)
+
         st.divider()
+
         _render_database_health(base_url)
 
     with tabs[1]:
@@ -585,23 +871,30 @@ def main():
         if observability:
             _render_approvals(observability)
         else:
-            st.info("Approval statistics unavailable.")
+            st.info(
+                "Approval statistics unavailable."
+            )
 
     with tabs[4]:
         _render_request_metrics(base_url)
+
+        st.divider()
+
+        _render_investigation_metrics(base_url)
 
         if observability:
             st.divider()
             _render_incident_timeline(observability)
 
         st.divider()
+
         _render_logs_and_deployments(base_url)
 
     st.divider()
 
     if observability:
         st.caption(
-            f"Local read-only observability database: "
+            "Local read-only observability database: "
             f"`{observability['database_path']}`"
         )
 
