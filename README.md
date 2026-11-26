@@ -4,13 +4,28 @@
 
 AgentShield is an AI-powered incident-investigation prototype that investigates application failures using logs, metrics, database health, and deployment history.
 
-It uses a security-first architecture to prevent untrusted log content from becoming instructions, restrict diagnostic tool access, validate AI outputs, and require human approval before remediation.
+It uses a security-first architecture to reduce the risk of untrusted log content influencing agent behavior, restrict diagnostic tool access, validate AI outputs, and require human approval before remediation.
 
 **Built with:** Python · FastAPI · LangGraph · MCP · Gemini · SQLite · Docker · Streamlit
 
 ---
 
-## Public Evaluation Replay\n\n**[AgentShield evaluation replay dashboard](https://srini2203.github.io/AgentShield/)** — static, read-only replay of recorded security and root-cause evaluation runs. First-time GitHub Pages activation is pending; the site is not live yet. It does not expose or call the unauthenticated FastAPI backend.\n\nThe dashboard reports the recorded root-cause evaluation as 24/25 completed, with 24/24 completed diagnoses manually matching the expected cause; one Gemini API 503 remains pending retry. The paired security evaluation reports 1/30 attack successes with defenses OFF and 0/30 with defenses ON. These are test-set observations, not a guarantee of prompt-injection immunity.\n\n## Project Overview
+## Public Evaluation Replay
+
+**[AgentShield Evaluation Replay Dashboard](https://srini2203.github.io/AgentShield/)**
+
+The dashboard is publicly accessible and provides a static, read-only replay of recorded security and root-cause evaluation results. It does not connect to or expose the unauthenticated FastAPI backend, run live AI investigations, or execute remediation actions.
+
+Recorded evaluation results:
+- Root-cause evaluation: 24/25 investigations completed.
+- Diagnosis accuracy: 24/24 completed diagnoses matched the expected root cause.
+- Paired security evaluation: 1/30 attack successes with defenses OFF and 0/30 with defenses ON.
+
+These are observations from the tested scenarios and model configuration, not guarantees of prompt-injection immunity.
+
+---
+
+## Project Overview
 
 Traditional incident-response automation can be dangerous when an AI agent has unrestricted access to application tools and remediation commands.
 
@@ -43,21 +58,25 @@ flowchart TD
 AgentShield implements four defensive layers.
 
 ### 1. Trust Boundary
+
 - Application logs and diagnostic outputs are treated as untrusted evidence.
 - Embedded instructions in logs must not override the agent's instructions.
 - Evidence is sanitized before being passed to the model.
 
 ### 2. Tool Authorization
+
 - Deterministic allowlisting of diagnostic tools.
 - MCP diagnostic tools are read-only.
 - The model cannot directly execute arbitrary remediation commands.
 
 ### 3. Strict Validation
+
 - Pydantic-based structured diagnosis.
 - Strict validation of diagnostic inputs and model outputs.
 - Rejection of malformed or unexpected values.
 
 ### 4. Human Approval
+
 - Explicit approval required before remediation.
 - Single-use approval tokens.
 - Five-minute approval expiry.
@@ -147,13 +166,19 @@ AgentShield/
 │   └── scenarios.py
 ├── dashboard/
 │   └── streamlit_app.py
+├── docs/
+│   └── adr/
+│       ├── ADR-01-read-only-mcp-tools.md
+│       ├── ADR-02-untrusted-logs.md
+│       ├── ADR-03-human-approval.md
+│       ├── ADR-04-docker-validation.md
+│       ├── ADR-05-host-side-apply.md
+│       └── ADR-06-evaluation-methodology.md
 ├── evaluation/
+│   ├── accuracy_eval.py
 │   ├── paired_security_eval.py
 │   ├── security_scoring.py
 │   └── results/
-│       ├── paired_security_eval_latest.json
-│       ├── paired_security_eval_review.csv
-│       └── paired_security_eval_summary.json
 ├── sandbox/
 │   └── remediate.py
 ├── tests/
@@ -218,9 +243,7 @@ docker build -f Dockerfile.sandbox -t agentshield-sandbox .
 python run.py
 ```
 
-API documentation:
-
-http://127.0.0.1:8000/docs
+API documentation: http://127.0.0.1:8000/docs
 
 ### 7. Start the Streamlit dashboard
 
@@ -230,9 +253,7 @@ In another terminal:
 streamlit run dashboard/streamlit_app.py
 ```
 
-Dashboard:
-
-http://localhost:8501
+Dashboard: http://localhost:8501
 
 ## Testing
 
@@ -329,6 +350,19 @@ From two successful live investigation runs:
 - Total tokens: 8,443
 
 These are results from two local runs, not a statistically representative benchmark.
+
+## Architecture Decision Records
+
+The following records document the key architectural and security decisions:
+
+| ADR | Decision |
+|---|---|
+| [ADR-01](docs/adr/ADR-01-read-only-mcp-tools.md) | Fixed read-only diagnostic MCP tools |
+| [ADR-02](docs/adr/ADR-02-untrusted-logs.md) | Logs and diagnostics are untrusted evidence |
+| [ADR-03](docs/adr/ADR-03-human-approval.md) | Explicit, expiring, single-use approval |
+| [ADR-04](docs/adr/ADR-04-docker-validation.md) | Restricted Docker patch validation |
+| [ADR-05](docs/adr/ADR-05-host-side-apply.md) | Host-side state application after validation |
+| [ADR-06](docs/adr/ADR-06-evaluation-methodology.md) | Separate security and accuracy evaluations |
 
 ## Security Limitations
 
