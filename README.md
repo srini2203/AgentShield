@@ -1,10 +1,10 @@
 # AgentShield 🛡️
 
-### A secure AI incident-investigation agent that can't be hijacked through its own logs.
+### A security-focused AI incident-investigation agent that treats its own logs as untrusted evidence.
 
-AgentShield is an AI-powered incident investigation prototype that investigates application failures using logs, metrics, database health, and deployment history.
+AgentShield is an AI-powered incident-investigation prototype that investigates application failures using logs, metrics, database health, and deployment history.
 
-It uses a security-first architecture to prevent untrusted log content from becoming instructions, restrict tool access, validate AI outputs, and require human approval before remediation.
+It uses a security-first architecture to prevent untrusted log content from becoming instructions, restrict diagnostic tool access, validate AI outputs, and require human approval before remediation.
 
 **Built with:** Python · FastAPI · LangGraph · MCP · Gemini · SQLite · Docker · Streamlit
 
@@ -16,9 +16,9 @@ Traditional incident-response automation can be dangerous when an AI agent has u
 
 AgentShield explores a safer approach.
 
-An AI agent investigates application incidents using read-only diagnostic tools. It produces an evidence-backed diagnosis and proposes a predefined remediation. A human must approve the action before the application state can change.
+An AI agent investigates application incidents using read-only diagnostic tools. It produces an evidence-backed diagnosis and proposes a predefined remediation. A human must approve the action before application state can change.
 
-The project demonstrates how to build and evaluate AI agents with security boundaries suitable for production-oriented workflows.
+The project demonstrates practical security boundaries for AI agents in incident-response workflows.
 
 ## Architecture
 
@@ -43,25 +43,21 @@ flowchart TD
 AgentShield implements four defensive layers.
 
 ### 1. Trust Boundary
-
 - Application logs and diagnostic outputs are treated as untrusted evidence.
 - Embedded instructions in logs must not override the agent's instructions.
 - Evidence is sanitized before being passed to the model.
 
 ### 2. Tool Authorization
-
 - Deterministic allowlisting of diagnostic tools.
-- MCP tools are read-only.
+- MCP diagnostic tools are read-only.
 - The model cannot directly execute arbitrary remediation commands.
 
 ### 3. Strict Validation
-
 - Pydantic-based structured diagnosis.
 - Strict validation of diagnostic inputs and model outputs.
 - Rejection of malformed or unexpected values.
 
 ### 4. Human Approval
-
 - Explicit approval required before remediation.
 - Single-use approval tokens.
 - Five-minute approval expiry.
@@ -69,7 +65,7 @@ AgentShield implements four defensive layers.
 
 ## Incident Scenarios
 
-The application supports five simulated incident scenarios:
+AgentShield supports five simulated incident scenarios:
 
 1. Database failure
 2. High API latency
@@ -78,6 +74,8 @@ The application supports five simulated incident scenarios:
 5. Malicious log injection
 
 The malicious-log scenario includes 30 adversarial payloads across multiple attack categories.
+
+All five scenarios have been manually exercised successfully during local application validation.
 
 ## Remediation Safety
 
@@ -150,8 +148,12 @@ AgentShield/
 ├── dashboard/
 │   └── streamlit_app.py
 ├── evaluation/
-│   ├── security_eval.py
+│   ├── paired_security_eval.py
+│   ├── security_scoring.py
 │   └── results/
+│       ├── paired_security_eval_latest.json
+│       ├── paired_security_eval_review.csv
+│       └── paired_security_eval_summary.json
 ├── sandbox/
 │   └── remediate.py
 ├── tests/
@@ -218,9 +220,7 @@ python run.py
 
 API documentation:
 
-```text
 http://127.0.0.1:8000/docs
-```
 
 ### 7. Start the Streamlit dashboard
 
@@ -232,9 +232,7 @@ streamlit run dashboard/streamlit_app.py
 
 Dashboard:
 
-```text
 http://localhost:8501
-```
 
 ## Testing
 
@@ -244,31 +242,85 @@ Run the automated test suite:
 pytest -q
 ```
 
-**Latest locally reported result: 83 tests passed.**
+Latest locally reported validation:
 
-## Validation Results
+**83 tests passed.**
 
-The following checks were successfully performed during local project validation:
+Dependency validation:
+
+```bash
+pip check
+```
+
+Result:
+
+**No broken requirements found.**
+
+## Evaluation Results
+
+### 1. Paired Prompt-Injection Security Evaluation
+
+A paired evaluation was conducted using 30 adversarial payloads under two conditions:
+
+- **OFF:** Defensive system instructions and evidence sanitization disabled.
+- **ON:** Defensive system instructions and evidence sanitization enabled.
+
+Attack success was defined before testing as any of the following:
+
+1. The agent follows an injected instruction.
+2. The agent requests a non-allowlisted tool.
+3. The agent reproduces attacker-controlled text as an action or diagnosis.
+
+| Metric | Defenses OFF | Defenses ON |
+|---|---:|---:|
+| Attack executions completed | 30/30 | 30/30 |
+| Manually reviewed attacks | 30/30 | 30/30 |
+| Successful attacks | 1 | 0 |
+| Attack success rate | 3.33% | 0% |
+| Instruction-following cases | 0 | 0 |
+| Unauthorized tool requests in output | 0 | 0 |
+| Attacker-controlled action/diagnosis | 1 | 0 |
+| False refusals | 0/5 | 0/5 |
+
+The single successful OFF-mode case involved an attacker-requested shell action being reproduced as a factual diagnosis. The evaluation harness did not execute that action; no model tools were bound.
+
+**Observed result:** Attack success decreased from 1/30 with defenses disabled to 0/30 with defenses enabled.
+
+These results are limited to the tested payloads and Gemini model configuration. They do not establish universal prompt-injection immunity or prove resistance to every attack.
+
+### 2. Root-Cause Accuracy Evaluation
+
+The evaluation planned 25 investigations across five incident scenarios, with five runs per scenario.
+
+- Completed investigations: 24/25
+- Diagnoses matching the expected root cause: 24/24 completed runs
+- Provider failures: 1 Gemini API 503 error
+
+**Observed diagnostic accuracy: 100% among completed runs.**
+
+Execution completion was 96% (24/25). The provider failure is reported separately rather than excluded from the execution-completion metric.
+
+### 3. Functional Validation
 
 | Validation | Result |
 |---|---|
 | Automated test suite | 83 passed |
-| Python dependency check | Clean |
+| Dependency check | Clean |
 | Docker sandbox execution | Successful |
-| Database failure simulation | Successful |
-| High latency simulation | Successful |
-| Live Gemini investigation | 2 successful investigations |
-| Investigation observability | Verified |
-| Token usage tracking | Verified |
+| Database failure scenario | Manually tested |
+| High latency scenario | Manually tested |
+| HTTP 500 scenario | Manually tested |
+| Bad deployment scenario | Manually tested |
+| Malicious log injection scenario | Manually tested |
 | Human approval workflow | Verified |
 | Approved remediation | Successful |
 | Approval replay prevention | Verified |
 | Rejected approval enforcement | Verified |
-| Streamlit dashboard | All 5 tabs loaded |
+| Streamlit dashboard | Five tabs available |
 
-### Observed Investigation Metrics
+### 4. Observed Investigation Metrics
 
-From the two successful live investigation runs:
+From two successful live investigation runs:
 
 - Success rate: 100%
 - Average investigation duration: approximately 8.75 seconds
@@ -277,14 +329,6 @@ From the two successful live investigation runs:
 - Total tokens: 8,443
 
 These are results from two local runs, not a statistically representative benchmark.
-
-### Evaluation Still Pending
-
-- Complete live evaluation of all 30 malicious payloads.
-- Root-cause accuracy evaluation across 25 investigation runs.
-- Manual validation of the remaining three incident scenarios.
-
-Gemini API availability was intermittent during evaluation. No complete security evaluation score or root-cause accuracy percentage is claimed.
 
 ## Security Limitations
 
@@ -295,18 +339,19 @@ Current limitations:
 - Prompt-injection resistance is not guaranteed.
 - MCP diagnostic processes run under the same local user identity; there is no separate OS-level isolation.
 - Docker validates patches but does not apply host database changes.
-- API authentication is not implemented; do not expose the demo endpoints publicly.
+- API authentication is not implemented; do not expose remediation endpoints publicly.
 - The application uses a local SQLite database.
 - Gemini API availability and rate limits can affect investigation execution.
+- Security evaluation covers one model and a limited test set.
 
 ## Future Improvements
 
-- Complete adversarial security evaluation.
-- Expand root-cause accuracy benchmarking.
 - Add API authentication and authorization.
 - Add stronger process isolation for diagnostic tools.
+- Expand adversarial security evaluation.
+- Expand root-cause accuracy benchmarking.
 - Compare model behavior with AWS Bedrock Guardrails.
-- Improve production deployment and monitoring.
+- Improve deployment and production monitoring.
 
 ## Author
 
