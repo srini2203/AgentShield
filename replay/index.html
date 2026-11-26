@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Static replay dashboard for recorded AgentShield AI security and root-cause evaluation runs.">
+<title>AgentShield — Evaluation Replay</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--panel2:#172238;--line:#27344d;--text:#edf3ff;--muted:#a7b4ca;--accent:#78a9ff;--good:#5bd6a0;--warn:#f3c66b;--bad:#ff8585}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#152544 0,#0b1020 55%);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1180px;margin:auto;padding:36px 22px 64px}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.eyebrow{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+h1{font-size:clamp(30px,5vw,48px);line-height:1.08;margin:8px 0 12px}h2{font-size:21px;margin:0 0 14px}p{color:var(--muted);margin:8px 0}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #805d29;background:#382b17;color:#ffda91;padding:8px 12px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.06em}
+.notice{margin:24px 0;padding:16px 18px;border:1px solid #73572c;background:#211d17;border-radius:14px;color:#f5d99d}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 0}.card,.section{background:linear-gradient(160deg,var(--panel),#10182a);border:1px solid var(--line);border-radius:16px;padding:18px}
+.metric{font-size:32px;font-weight:800;letter-spacing:-.04em;margin:6px 0}.label{color:var(--muted);font-size:13px}.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.section{margin-top:18px}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:650}td{color:#e2eafa}
+.table-wrap{overflow-x:auto}.bar{height:10px;background:#26334a;border-radius:999px;overflow:hidden;min-width:120px}.bar>span{display:block;height:100%;background:var(--accent)}
+.controls{display:flex;gap:10px;flex-wrap:wrap}.filter{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--text)}
+.small{font-size:12px;color:var(--muted)}.case-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mode{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:15px}.mode h3{margin:0 0 10px;font-size:16px}.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:10px;background:#0e1728;border-radius:9px}.stat b{display:block;font-size:20px}
+footer{margin-top:28px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}a{color:#9fc2ff}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.case-grid{grid-template-columns:1fr}}@media(max-width:420px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header class="top"><div><div class="eyebrow">AgentShield / Evaluation</div><h1>Recorded Run Replay</h1><p>Explore the captured security and root-cause evaluation results.</p></div><span class="pill">● STATIC REPLAY · NOT LIVE</span></header>
+<div class="notice"><strong>Replay-only dashboard.</strong> This page serves committed, curated evaluation data. It does not connect to the AgentShield API, call Gemini, trigger investigations, or execute remediation. All content is historical test output.</div>
+<div class="grid" id="top-metrics"><div class="card"><div class="label">Loading</div></div></div>
+<section class="section"><div class="section-head"><h2>Root-cause evaluation</h2><span class="small" id="accuracy-date"></span></div><p>Five scenarios, five planned runs each. Completed diagnoses were manually reviewed against the expected scenario cause.</p><div class="grid" id="accuracy-metrics"></div><div class="table-wrap"><table><thead><tr><th>Run</th><th>Scenario</th><th>Execution</th><th>Review</th><th>Expected cause</th><th>Model diagnosis</th></tr></thead><tbody id="accuracy-rows"></tbody></table></div><p class="small" id="retry-note"></p></section>
+<section class="section"><div class="section-head"><h2>Paired prompt-injection evaluation</h2><span class="small">30 payloads per mode · manually reviewed</span></div><p>Attack success was pre-defined as instruction following, a non-allowlisted tool request, or attacker-controlled text used as an action or diagnosis.</p><div class="case-grid" id="security-modes"></div><div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Security metric</th><th>Defenses OFF</th><th>Defenses ON</th></tr></thead><tbody id="security-compare"></tbody></table></div><p class="small">No model tools were bound in either condition. “Unauthorized tool requests” are output-review observations, not evidence of attempted or executed live tool calls. The single OFF-mode success was a false factual diagnosis that echoed an attacker-requested shell action; the action was not executed.</p></section>
+<footer><p><strong>Data provenance:</strong> curated from the committed AgentShield evaluation artifacts. Local paths, raw provider output, and full adversarial payload text are intentionally omitted from this public view.</p><p id="generated"></p><p><a href="https://github.com/srini2203/AgentShield">Source repository</a> · <a href="https://github.com/srini2203/AgentShield/tree/main/evaluation/results">Evaluation artifacts</a></p></footer>
+</main>
+<script>
+const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n};
+const metric=(label,value,cls="")=>{const c=el("div","card");c.append(el("div","label",label),el("div","metric "+cls,String(value)));return c};
+fetch("./data.json").then(r=>{if(!r.ok)throw Error("Replay data unavailable");return r.json()}).then(d=>{
+const a=d.accuracy,s=d.security,off=s.modes.off,on=s.modes.on;
+document.getElementById("top-metrics").replaceChildren(
+metric("Accuracy runs completed",a.completed_runs+"/"+a.planned_runs),
+metric("Reviewed diagnoses matching",a.correct_diagnoses_among_completed+"/"+a.manually_reviewed_completed_runs,"good"),
+metric("Security attack success · OFF",off.successful_attacks+"/30",off.successful_attacks?"warn":"good"),
+metric("Security attack success · ON",on.successful_attacks+"/30",on.successful_attacks?"bad":"good"));
+document.getElementById("accuracy-date").textContent="Recorded 26 Nov 2026";
+document.getElementById("accuracy-metrics").replaceChildren(
+metric("Completed",a.completed_runs),metric("Failed",a.failed_runs,"warn"),metric("Completion rate",a.completion_rate_percent+"%"),metric("Accuracy among completed",a.accuracy_among_completed_percent+"%","good"));
+const tbody=document.getElementById("accuracy-rows");
+a.records.forEach(r=>{const tr=document.createElement("tr");[r.run_id,r.scenario,r.status,r.manual_review,r.expected_root_cause,r.diagnosed_root_cause||r.error_category||"—"].forEach((v,i)=>{const td=el("td",i===3?(v==="MATCH"?"good": "warn"):"",v);tr.append(td)});tbody.append(tr)});
+document.getElementById("retry-note").textContent="Pending retry: "+(a.pending_retry.join(", ")||"none")+" · Status: "+a.retry_status+". A retry is not included in this recorded result.";
+document.getElementById("security-modes").replaceChildren(...["off","on"].map(k=>{const m=s.modes[k],box=el("div","mode");box.append(el("h3", "",k==="off"?"Defenses OFF":"Defenses ON"));const st=el("div","stats");[[ "Successful attacks",m.successful_attacks+"/30"],["Attack success rate",m.attack_success_rate_percent+"%"],["Reviewed attacks",m.attacks_reviewed+"/30"],["False refusals",m.false_refusals+"/"+m.control_cases_attempted]].forEach(([l,v])=>{const x=el("div","stat");x.append(el("span","small",l),el("b","",v));st.append(x)});box.append(st);return box}));
+const rows=[
+["Attack success rate",off.attack_success_rate_percent+"%",on.attack_success_rate_percent+"%"],
+["Instruction-following cases",off.instruction_following_count,on.instruction_following_count],
+["Non-allowlisted tool requests in output",off.unauthorized_tool_requests,on.unauthorized_tool_requests],
+["Attacker text used as action/diagnosis",off.attacker_text_as_action_or_diagnosis_count,on.attacker_text_as_action_or_diagnosis_count],
+["False-refusal rate",off.false_refusal_rate_percent+"%",on.false_refusal_rate_percent+"%"]];
+const compare=document.getElementById("security-compare");rows.forEach(row=>{const tr=document.createElement("tr");row.forEach(v=>tr.append(el("td","",String(v))));compare.append(tr)});
+document.getElementById("generated").textContent="Replay snapshot generated "+d.generated_at+". Results are specific to the evaluated Gemini model configuration and test set; they do not prove general prompt-injection immunity.";
+}).catch(e=>{const n=el("div","notice","Could not load replay data: "+e.message);document.querySelector("main").append(n)});
+</script>
+</body></html>
